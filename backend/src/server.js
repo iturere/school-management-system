@@ -1,3 +1,4 @@
+import enrollmentsRouter from "./routes/enrollments.routes.js";
 import classesRouter from "./routes/classes.routes.js";
 import teachersRouter from "./routes/teachers.routes.js";
 import authRouter from "./routes/auth.routes.js";
@@ -98,6 +99,7 @@ app.use("/api/students", studentsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/teachers", teachersRouter);
 app.use("/api/classes", classesRouter);
+app.use("/api/enrollments", enrollmentsRouter);
 
 // Start server
 app.listen(PORT, () => {

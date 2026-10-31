@@ -323,4 +323,54 @@ router.patch(
   }
 );
 
+
+
+// REACTIVATE an inactive class
+// Admin only
+router.patch(
+  "/:id/reactivate",
+  authenticateToken,
+  authorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!/^[1-9]\d*$/.test(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid class ID.",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE classes
+         SET is_active = TRUE
+         WHERE id = $1
+           AND is_active = FALSE
+         RETURNING id, class_name, academic_year, teacher_id, is_active`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Inactive class not found.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Class reactivated successfully.",
+        class: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Reactivate class error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to reactivate class.",
+      });
+    }
+  }
+);
+
 export default router;
