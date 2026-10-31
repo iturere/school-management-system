@@ -1,4 +1,5 @@
 import gradesRouter from "./routes/grades.routes.js";
+import dashboardRouter from "./routes/dashboard.routes.js";
 import attendanceRouter from "./routes/attendance.routes.js";
 import enrollmentsRouter from "./routes/enrollments.routes.js";
 import classesRouter from "./routes/classes.routes.js";
@@ -18,6 +19,9 @@ const PORT = process.env.PORT || 5000;
 
 // Security middleware
 app.use(helmet());
+
+
+
 
 // Allow frontend requests
 app.use(cors());
@@ -104,6 +108,8 @@ app.use("/api/classes", classesRouter);
 app.use("/api/enrollments", enrollmentsRouter);
 app.use("/api/attendance", attendanceRouter);
 app.use("/api/grades", gradesRouter);
+app.use("/api/dashboard", dashboardRouter);
+
 
 // Start server
 app.listen(PORT, () => {
