@@ -417,4 +417,56 @@ router.post(
   }
 );
 
+
+// REACTIVATE a teacher account
+router.patch(
+  "/:id/reactivate",
+  authenticateToken,
+  authorizeRoles("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!/^[1-9]\d*$/.test(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid teacher ID.",
+        });
+      }
+
+      const result = await pool.query(
+        `UPDATE users u
+         SET is_active = TRUE,
+             updated_at = CURRENT_TIMESTAMP
+         FROM teachers t
+         WHERE t.user_id = u.id
+           AND t.id = $1
+           AND u.is_active = FALSE
+         RETURNING t.id, t.employee_number, u.full_name, u.email, u.is_active`,
+        [id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Inactive teacher not found.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Teacher reactivated successfully.",
+        teacher: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Reactivate teacher error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to reactivate teacher.",
+      });
+    }
+  }
+);
+
+
 export default router;

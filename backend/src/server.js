@@ -1,3 +1,4 @@
+import classesRouter from "./routes/classes.routes.js";
 import teachersRouter from "./routes/teachers.routes.js";
 import authRouter from "./routes/auth.routes.js";
 import studentsRouter from "./routes/students.routes.js";
@@ -96,6 +97,7 @@ app.get("/api/db-tables", async (req, res) => {
 app.use("/api/students", studentsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/teachers", teachersRouter);
+app.use("/api/classes", classesRouter);
 
 // Start server
 app.listen(PORT, () => {
