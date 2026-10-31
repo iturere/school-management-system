@@ -8,6 +8,29 @@ import {
 
 const router = Router();
 
+const validStatuses = ["active", "completed", "withdrawn"];
+
+// Validate positive integer IDs
+const isValidId = (value) =>
+  /^[1-9]\d*$/.test(String(value)) &&
+  Number.isSafeInteger(Number(value));
+
+// Validate real calendar dates in YYYY-MM-DD format
+const isValidDate = (value) => {
+  if (typeof value !== "string") return false;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+};
+
 // GET all enrollments
 // Admin: all enrollments
 // Teacher: enrollments in assigned classes
@@ -18,8 +41,6 @@ router.get(
   async (req, res) => {
     try {
       const { status } = req.query;
-
-      const validStatuses = ["active", "completed", "withdrawn"];
 
       if (status && !validStatuses.includes(status)) {
         return res.status(400).json({
@@ -45,25 +66,29 @@ router.get(
          JOIN users u ON s.user_id = u.id
          JOIN classes c ON e.class_id = c.id
          WHERE
-           ($1 = 'admin' OR EXISTS (
-             SELECT 1
-             FROM teachers t
-             WHERE t.user_id = $2
-               AND t.id = c.teacher_id
-           ))
+           (
+             $1 = 'admin'
+             OR EXISTS (
+               SELECT 1
+               FROM teachers t
+               WHERE t.user_id = $2
+                 AND t.id = c.teacher_id
+             )
+           )
            AND ($3::varchar IS NULL OR e.status = $3)
          ORDER BY e.id DESC`,
         [req.user.role, req.user.id, status || null]
       );
 
-      res.json({
+      return res.json({
         success: true,
         count: result.rows.length,
         enrollments: result.rows,
       });
     } catch (error) {
       console.error("Get enrollments error:", error);
-      res.status(500).json({
+
+      return res.status(500).json({
         success: false,
         message: "Failed to retrieve enrollments.",
       });
@@ -80,7 +105,7 @@ router.get(
     try {
       const { id } = req.params;
 
-      if (!/^[1-9]\d*$/.test(id)) {
+      if (!isValidId(id)) {
         return res.status(400).json({
           success: false,
           message: "Invalid enrollment ID.",
@@ -105,7 +130,8 @@ router.get(
          JOIN classes c ON e.class_id = c.id
          WHERE e.id = $1
            AND (
-             $2 = 'admin' OR EXISTS (
+             $2 = 'admin'
+             OR EXISTS (
                SELECT 1
                FROM teachers t
                WHERE t.user_id = $3
@@ -122,13 +148,14 @@ router.get(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         enrollment: result.rows[0],
       });
     } catch (error) {
       console.error("Get enrollment error:", error);
-      res.status(500).json({
+
+      return res.status(500).json({
         success: false,
         message: "Failed to retrieve enrollment.",
       });
@@ -146,12 +173,7 @@ router.post(
     try {
       const { student_id, class_id, enrollment_date } = req.body;
 
-      if (
-        !Number.isInteger(Number(student_id)) ||
-        Number(student_id) <= 0 ||
-        !Number.isInteger(Number(class_id)) ||
-        Number(class_id) <= 0
-      ) {
+      if (!isValidId(student_id) || !isValidId(class_id)) {
         return res.status(400).json({
           success: false,
           message: "Valid student_id and class_id are required.",
@@ -159,55 +181,48 @@ router.post(
       }
 
       if (
-        enrollment_date &&
-        !/^\d{4}-\d{2}-\d{2}$/.test(enrollment_date)
+        enrollment_date !== undefined &&
+        enrollment_date !== null &&
+        enrollment_date !== "" &&
+        !isValidDate(enrollment_date)
       ) {
         return res.status(400).json({
           success: false,
-          message: "Enrollment date must use YYYY-MM-DD format.",
+          message: "Enter a valid enrollment date in YYYY-MM-DD format.",
         });
       }
 
-      // Check that the student exists and is active
-      const student = await pool.query(
-        `SELECT s.id
-         FROM students s
-         JOIN users u ON s.user_id = u.id
-         WHERE s.id = $1 AND u.is_active = TRUE`,
-        [student_id]
-      );
-
-      if (student.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Student not found or inactive.",
-        });
-      }
-
-      // Check that the class exists and is active
-      const schoolClass = await pool.query(
-        `SELECT id
-         FROM classes
-         WHERE id = $1 AND is_active = TRUE`,
-        [class_id]
-      );
-
-      if (schoolClass.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Class not found or inactive.",
-        });
-      }
-
+      // Insert only when both student and class are active.
       const result = await pool.query(
         `INSERT INTO enrollments
            (student_id, class_id, enrollment_date)
-         VALUES ($1, $2, COALESCE($3::date, CURRENT_DATE))
+         SELECT
+           s.id,
+           c.id,
+           COALESCE($3::date, CURRENT_DATE)
+         FROM students s
+         JOIN users u ON s.user_id = u.id
+         CROSS JOIN classes c
+         WHERE s.id = $1
+           AND u.is_active = TRUE
+           AND c.id = $2
+           AND c.is_active = TRUE
          RETURNING *`,
-        [student_id, class_id, enrollment_date || null]
+        [
+          Number(student_id),
+          Number(class_id),
+          enrollment_date || null,
+        ]
       );
 
-      res.status(201).json({
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Student or class not found or inactive.",
+        });
+      }
+
+      return res.status(201).json({
         success: true,
         message: "Student enrolled successfully.",
         enrollment: result.rows[0],
@@ -228,7 +243,8 @@ router.post(
       }
 
       console.error("Create enrollment error:", error);
-      res.status(500).json({
+
+      return res.status(500).json({
         success: false,
         message: "Failed to enroll student.",
       });
@@ -247,14 +263,12 @@ router.patch(
       const { id } = req.params;
       const { status } = req.body;
 
-      if (!/^[1-9]\d*$/.test(id)) {
+      if (!isValidId(id)) {
         return res.status(400).json({
           success: false,
           message: "Invalid enrollment ID.",
         });
       }
-
-      const validStatuses = ["active", "completed", "withdrawn"];
 
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
@@ -278,14 +292,15 @@ router.patch(
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "Enrollment status updated successfully.",
         enrollment: result.rows[0],
       });
     } catch (error) {
       console.error("Update enrollment status error:", error);
-      res.status(500).json({
+
+      return res.status(500).json({
         success: false,
         message: "Failed to update enrollment status.",
       });

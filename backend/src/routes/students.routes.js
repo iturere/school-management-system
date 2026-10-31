@@ -410,7 +410,7 @@ router.delete(
   async (req, res) => {
     const { id } = req.params;
 
-    if (!/^[1-9]\d*$/.test(id)) {
+   if (!/^[1-9]\d*$/.test(id)) {
       return res.status(400).json({
         success: false,
         message: "Invalid student ID.",
