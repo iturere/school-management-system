@@ -1,4 +1,5 @@
 
+import studentsRouter from "./routes/students.routes.js";
 import pool from "./config/database.js";
 import express from "express";
 import cors from "cors";
@@ -37,13 +38,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-
-
 
 
 // Test PostgreSQL connection
@@ -65,3 +59,46 @@ app.get("/api/db-test", async (req, res) => {
     });
   }
 });
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+
+ // Get database tables
+app.get("/api/db-tables", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `);
+
+    res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      tables: result.rows.map((row) => row.table_name),
+    });
+  } catch (error) {
+    console.error("Failed to retrieve database tables:", error.message);
+
+    res.status(500).json({
+      success: false,
+      message: "Could not retrieve database tables.",
+    });
+  }
+});
+
+///////////////////
+
+app.use("/api/students", studentsRouter);
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
+
+
+
