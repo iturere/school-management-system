@@ -1,3 +1,7 @@
+import Teachers from "./pages/Teachers";
+import Students from "./pages/Students";
+import Classes from "./pages/Classes";
+
 import {
   BrowserRouter,
   Routes,
@@ -32,9 +36,12 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/students" element={<ComingSoon title="Students" />} />
-              <Route path="/teachers" element={<ComingSoon title="Teachers" />} />
-              <Route path="/classes" element={<ComingSoon title="Classes" />} />
+              {/* <Route path="/students" element={<ComingSoon title="Students" />} /> */}
+              <Route path="/students" element={<Students />} />
+              {/* <Route path="/teachers" element={<ComingSoon title="Teachers" />} /> */}
+              <Route path="/teachers" element={<Teachers />} />
+              {/* <Route path="/classes" element={<ComingSoon title="Classes" />} />  */}
+              <Route path="/classes" element={<Classes />} />
               <Route path="/enrollments" element={<ComingSoon title="Enrollments" />} />
               <Route path="/attendance" element={<ComingSoon title="Attendance" />} />
               <Route path="/grades" element={<ComingSoon title="Grades" />} />
