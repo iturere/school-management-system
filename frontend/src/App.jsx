@@ -1,7 +1,9 @@
 import Teachers from "./pages/Teachers";
 import Students from "./pages/Students";
 import Classes from "./pages/Classes";
-
+import Enrollments from "./pages/Enrollments";
+import Attendance from "./pages/Attendance";
+import Grades from "./pages/Grades";
 import {
   BrowserRouter,
   Routes,
@@ -42,9 +44,12 @@ function App() {
               <Route path="/teachers" element={<Teachers />} />
               {/* <Route path="/classes" element={<ComingSoon title="Classes" />} />  */}
               <Route path="/classes" element={<Classes />} />
-              <Route path="/enrollments" element={<ComingSoon title="Enrollments" />} />
+              {/* <Route path="/enrollments" element={<ComingSoon title="Enrollments" />} />
               <Route path="/attendance" element={<ComingSoon title="Attendance" />} />
-              <Route path="/grades" element={<ComingSoon title="Grades" />} />
+              <Route path="/grades" element={<ComingSoon title="Grades" />} /> */}
+              <Route path="/enrollments" element={<Enrollments />} />
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/grades" element={<Grades />} />
             </Route>
           </Route>
 
