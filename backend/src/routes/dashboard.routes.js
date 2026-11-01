@@ -114,4 +114,98 @@ router.get(
   }
 );
 
+
+
+
+// GET /api/dashboard/student
+// Return dashboard information for the logged-in student only.
+router.get(
+  "/student",
+  authenticateToken,
+  authorizeRoles("student"),
+  async (req, res) => {
+    try {
+      const studentResult = await pool.query(
+        `SELECT
+           s.id,
+           s.admission_number,
+           s.date_of_birth,
+           s.gender,
+           s.phone,
+           s.address,
+           u.full_name,
+           u.email
+         FROM students s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.user_id = $1
+           AND u.is_active = TRUE`,
+        [req.user.id]
+      );
+
+      if (studentResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Student profile not found.",
+        });
+      }
+
+      const student = studentResult.rows[0];
+
+      const enrollmentResult = await pool.query(
+        `SELECT
+           e.id,
+           e.enrollment_date,
+           e.status,
+           c.id AS class_id,
+           c.class_name,
+           c.academic_year
+         FROM enrollments e
+         JOIN classes c ON c.id = e.class_id
+         WHERE e.student_id = $1
+           AND e.status = 'active'
+           AND c.is_active = TRUE
+         ORDER BY c.class_name`,
+        [student.id]
+      );
+
+      const attendanceResult = await pool.query(
+        `SELECT
+           COUNT(*)::int AS total_records,
+           COUNT(*) FILTER (
+             WHERE a.status = 'present'
+           )::int AS present,
+           COUNT(*) FILTER (
+             WHERE a.status = 'absent'
+           )::int AS absent,
+           COUNT(*) FILTER (
+             WHERE a.status = 'late'
+           )::int AS late
+         FROM attendance a
+         JOIN enrollments e
+           ON e.student_id = a.student_id
+          AND e.class_id = a.class_id
+         WHERE e.student_id = $1
+           AND e.status = 'active'`,
+        [student.id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        student,
+        classes: enrollmentResult.rows,
+        attendance: attendanceResult.rows[0],
+      });
+    } catch (error) {
+      console.error("Student dashboard error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Could not load student dashboard.",
+      });
+    }
+  }
+);
+
+
+
 export default router;

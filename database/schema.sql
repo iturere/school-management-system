@@ -121,6 +121,46 @@ CREATE TABLE attendance (
 
 
 
+-- =========================================
+-- ENROLLMENTS TABLE
+-- =========================================
+
+CREATE TABLE enrollments (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    student_id BIGINT NOT NULL,
+    class_id BIGINT NOT NULL,
+
+    enrollment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active', 'completed', 'withdrawn')),
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_enrollment_student
+        FOREIGN KEY (student_id)
+        REFERENCES students(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_enrollment_class
+        FOREIGN KEY (class_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_student_class
+        UNIQUE (student_id, class_id)
+);
+
+CREATE INDEX idx_enrollments_student
+    ON enrollments(student_id);
+
+CREATE INDEX idx_enrollments_class
+    ON enrollments(class_id);
+
+CREATE INDEX idx_enrollments_status
+    ON enrollments(status);
+
 
 
 -- =========================================

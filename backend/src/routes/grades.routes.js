@@ -51,6 +51,63 @@ const isValidScore = (score, maximumScore) => {
   );
 };
 
+
+
+// GET /api/grades/my
+// Student: view only their own grades
+router.get(
+  "/my",
+  authenticateToken,
+  authorizeRoles("student"),
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT
+           g.id,
+           g.student_id,
+           g.class_id,
+           c.class_name,
+           g.subject,
+           g.assessment_type,
+           g.score,
+           g.maximum_score,
+           ROUND(
+             (g.score::numeric / NULLIF(g.maximum_score, 0)) * 100,
+             2
+           ) AS percentage,
+           g.assessment_date
+         FROM grades g
+         JOIN students s ON s.id = g.student_id
+         JOIN classes c ON c.id = g.class_id
+         WHERE s.user_id = $1
+           AND EXISTS (
+             SELECT 1
+             FROM enrollments e
+             WHERE e.student_id = g.student_id
+               AND e.class_id = g.class_id
+               AND e.status = 'active'
+           )
+         ORDER BY g.assessment_date DESC, g.id DESC`,
+        [req.user.id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: result.rows.length,
+        grades: result.rows,
+      });
+    } catch (error) {
+      console.error("Get student grades error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve your grades.",
+      });
+    }
+  }
+);
+
+
 // GET grades
 // Admin: all grades
 // Teacher: grades in assigned classes

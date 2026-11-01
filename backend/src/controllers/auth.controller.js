@@ -7,7 +7,7 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate required fields
+    // Validate input
     if (
       typeof email !== "string" ||
       typeof password !== "string" ||
@@ -20,12 +20,42 @@ export const login = async (req, res) => {
       });
     }
 
-    // Find the user by email
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (
+      normalizedEmail.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address.",
+      });
+    }
+
+    // bcrypt uses a maximum of 72 password bytes
+    if (Buffer.byteLength(password, "utf8") > 72) {
+      return res.status(400).json({
+        success: false,
+        message: "Password exceeds the maximum supported length.",
+      });
+    }
+
+    // Ensure JWT configuration exists
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured.");
+
+      return res.status(500).json({
+        success: false,
+        message: "Authentication service is not configured.",
+      });
+    }
+
+    // Find user
     const result = await pool.query(
       `SELECT id, full_name, email, password_hash, role, is_active
        FROM users
        WHERE email = $1`,
-      [email.trim().toLowerCase()]
+      [normalizedEmail]
     );
 
     if (result.rows.length === 0) {
@@ -37,7 +67,7 @@ export const login = async (req, res) => {
 
     const user = result.rows[0];
 
-    // Check whether the account is active
+    // Check account status
     if (!user.is_active) {
       return res.status(403).json({
         success: false,
@@ -45,7 +75,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Compare entered password with stored password hash
+    // Verify password
     const passwordMatches = await bcrypt.compare(
       password,
       user.password_hash
@@ -58,7 +88,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Generate JWT token
+    // Generate JWT
     const token = jwt.sign(
       {
         id: user.id,
@@ -66,12 +96,12 @@ export const login = async (req, res) => {
       },
       process.env.JWT_SECRET,
       {
+        algorithm: "HS256",
         expiresIn: process.env.JWT_EXPIRES_IN || "1d",
       }
     );
 
-    // Return token and user information
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful.",
       token,
@@ -83,9 +113,9 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login error:", error.message);
+    console.error("Login error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Login failed due to a server error.",
     });
